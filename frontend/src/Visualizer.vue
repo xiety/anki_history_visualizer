@@ -1,33 +1,55 @@
 <template>
     <div class="container">
-        <canvas class="canvas" ref="canvas" width="800" height="600"></canvas>
+        <canvas class="canvas" ref="canvas" :width=width :height=height
+            :style="{ width: width + 'px', height: height + 'px' }" @mousemove="handle_mousemove"
+            @mouseup="handle_mouseup"></canvas>
         <input type="range" step="1" v-model.number="slider_value" :min="0" :max="max_step" />
-        <div>{{ current_date_text }}</div>
+        <div class="toolbar">
+            <div>{{ current_date_text }}</div>
+            <button v-if="!is_playing" @click="handle_play">Play</button>
+            <button v-if="is_playing" @click="handle_stop">Stop</button>
+        </div>
+        <div v-if="info_loaded" class="card_info">
+            <div class="card_side" v-html="card_question"></div>
+            <div class="card_side" v-html="card_answer"></div>
+        </div>
     </div>
 </template>
 
 <script setup lang="ts">
 import { onMounted, ref, computed, watch } from 'vue';
-
-declare var pycmd: any;
+import { Api, type Card } from './api';
+import { addDays, count, last, rainbow } from './utils';
 
 const canvas = ref<HTMLCanvasElement | null>(null);
 const ctx = ref<CanvasRenderingContext2D | null>(null);
 
+const api = new Api();
 const slider_value = ref(0);
-const max_step = ref(500);
-const min_date = ref<Date | null>(null)
+const max_step = ref(0);
+const min_date = ref<Date | null>(null);
 const records = ref<Array<Card>>([]);
+const card_question = ref<string>("");
+const card_answer = ref<string>("");
+const is_playing = ref<boolean>(false);
+const hovered_card_id = ref<number | undefined>();
+const info_loaded = ref<boolean>(false);
 
-watch([slider_value, records], draw);
+const width = 800;
+const height = 600;
+const day_size = 3.5;
+const box_width = 5;
 
-onMounted(() => {
-    pycmd('get_cards', (a: any) => {
-        const response = <GetCardsResponse>JSON.parse(a);
-        min_date.value = new Date(response.min_day * 60 * 60 * 24 * 1000);
-        max_step.value = Math.round((new Date().getTime() - min_date.value.getTime()) / (1000 * 60 * 60 * 24)) + 100;
-        records.value = response.cards;
-    });
+let circles: Circle[] = [];
+
+watch([slider_value, records], refresh_canvas);
+watch([hovered_card_id], draw);
+
+onMounted(async () => {
+    var response = await api.get_cards();
+    min_date.value = new Date(response.min_day * 60 * 60 * 24 * 1000);
+    max_step.value = Math.round((new Date().getTime() - min_date.value.getTime()) / (1000 * 60 * 60 * 24)) + 100;
+    records.value = response.cards;
 });
 
 const current_date = computed(() => {
@@ -50,27 +72,80 @@ onMounted(() => {
         ctx.value = canvas.value.getContext('2d');
 });
 
-function last<T>(arr: T[], predicate: (item: T) => boolean): T | undefined {
-    for (let i = arr.length - 1; i >= 0; i--) {
-        if (predicate(arr[i]))
-            return arr[i];
+function handle_play() {
+    if (!is_playing.value) {
+        is_playing.value = true;
+
+        window.requestAnimationFrame(handle_animation);
     }
-    return undefined;
 }
 
-function draw() {
-    if (!ctx.value) return;
+function handle_stop() {
+    if (is_playing.value) {
+        is_playing.value = false;
+    }
+}
 
-    const width = 800;
-    const height = 600;
+let previous_timeStamp: number | undefined;
 
-    ctx.value.clearRect(0, 0, width, height);
+function handle_animation(timestamp: number) {
+    if (timestamp !== previous_timeStamp) {
+        if (slider_value.value === max_step.value)
+            slider_value.value = 0;
+        else
+            slider_value.value += 1;
 
-    const day_size = 3.5;
-    const box_width = 5;
+        previous_timeStamp = timestamp;
+    }
 
+    if (is_playing.value)
+        window.requestAnimationFrame(handle_animation);
+}
+
+function handle_mousemove(e: MouseEvent) {
+    const circle = find_circle(e);
+
+    if (circle && circle.card_id != hovered_card_id.value)
+    {
+        setTimeout(() => update_card_info(hovered_card_id.value), 100);
+        hovered_card_id.value = circle.card_id;
+    }
+}
+
+function find_circle(e: MouseEvent) {
+    if (!canvas.value)
+        return undefined;
+
+    const rect = canvas.value.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const circle = last(circles, (a) => is_inside(a, x, y));
+
+    return circle;
+}
+
+async function update_card_info(card_id: number | undefined) {
+    if (card_id) {
+        const response = await api.card_info(card_id);
+        card_question.value = response.question;
+        card_answer.value = response.answer;
+        info_loaded.value = true;
+    }
+}
+
+function handle_mouseup(e: MouseEvent) {
+    const circle = find_circle(e);
+
+    if (circle) {
+        api.open_browser(`cid:${circle.card_id}`);
+    }
+}
+
+function generate() {
     const step_width = (width - box_width) / records.value.length;
     let x = 0;
+
+    circles = []
 
     for (const card of records.value) {
         const revlogPrev = last(card.steps, (a) => a.day <= slider_value.value);
@@ -85,14 +160,11 @@ function draw() {
                 const arc = (Math.pow(max_height / 2, 2) - Math.pow(max_height / 2 - max_height * percent, 2)) / normalize;
                 const y = height - arc;
 
-                const reviews_count = card.steps.filter(a => a.day <= slider_value.value).length;
+                const reviews_count = count(card.steps, (a) => a.day <= slider_value.value);
                 const size = 3 + (reviews_count * box_width) / 3;
                 const color = rainbow(Math.min(Math.max(revlogNext.stability / 365, 0), 0.99));
 
-                ctx.value.beginPath();
-                ctx.value.arc(x + size / 2, y, size / 2, 0, 2 * Math.PI, false);
-                ctx.value.fillStyle = color;
-                ctx.value.fill();
+                circles.push({ card_id: card.card_id, x: x + size / 2, y: y, radius: size / 2, color: color });
             } else {
                 const percent = Math.min(Math.max(slider_value.value / revlogNext.stability, 0), 1);
 
@@ -101,10 +173,8 @@ function draw() {
                 const y = height - arc;
 
                 const size = 1;
-                ctx.value.beginPath();
-                ctx.value.arc(x + size / 2, y, size / 2, 0, 2 * Math.PI, false);
-                ctx.value.fillStyle = 'gray';
-                ctx.value.fill();
+
+                circles.push({ card_id: card.card_id, x: x + size / 2, y: y, radius: size / 2, color: 'gray' });
             }
         }
 
@@ -112,82 +182,90 @@ function draw() {
     }
 }
 
-function rainbow(progress: number): string {
-    const div = Math.abs(progress % 1) * 5;
-    const ascending = Math.floor((div % 1) * 255);
-    const descending = 255 - ascending;
+function refresh_canvas() {
+    generate();
+    draw();
+}
 
-    switch (Math.floor(div)) {
-        case 0: return `rgba(255, ${ascending}, 0, 1)`;
-        case 1: return `rgba(${descending}, 255, 0, 1)`;
-        case 2: return `rgba(0, 255, ${ascending}, 1)`;
-        case 3: return `rgba(0, ${descending}, 255, 1)`;
-        default: return `rgba(${ascending}, 0, 255, 1)`;
+function draw() {
+    if (!ctx.value) return;
+
+    ctx.value.clearRect(0, 0, width, height);
+
+    ctx.value.lineWidth = 1;
+    ctx.value.font = '12px serif';
+    ctx.value.fillStyle = 'gray';
+    ctx.value.strokeStyle = 'gray';
+
+    for (let d = 30; d < (height / day_size); d += 30) {
+        var y = height - d * day_size;
+
+        ctx.value.beginPath();
+        ctx.value.moveTo(0, y);
+        ctx.value.lineTo(width, y);
+        ctx.value.stroke();
+
+        ctx.value.fillText(`${d}`, width - 20, y - 4, 20);
+    }
+
+    ctx.value.strokeStyle = 'white';
+    ctx.value.lineWidth = 3;
+
+    for (const circle of circles) {
+        ctx.value.beginPath();
+        ctx.value.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI, false);
+        ctx.value.fillStyle = circle.color;
+        ctx.value.fill();
+
+        if (circle.card_id === hovered_card_id.value) {
+            ctx.value.stroke();
+        }
     }
 }
 
-function addDays(date: Date, days: number): Date {
-    let result = new Date(date);
-    result.setDate(result.getDate() + days);
-    return result;
-}
-
-function text_changed() {
-    // const lines = text.value.split('\n');
-    // min_date.value = parse_date(lines[0]);
-    // records.value = parse_text(lines.splice(1));
-    // recalculate();
-}
-
-// function parse_date(input: string): Date {
-//     const [year, month, day] = input.split('.').map(Number);
-//     return new Date(year, month - 1, day);
-// }
-
-// function parse_text(lines: Array<string>): Array<Card> {
-//     return lines.slice(1).filter((line) => line != '').map((line) => {
-//         const [name, id, steps] = line.split(';');
-//         const stepPairs = steps.split(' ');
-
-//         let sum = 0;
-//         const parsedSteps = stepPairs.map((stepPair) => {
-//             const [stability, grade] = stepPair.split(':').map(Number);
-//             sum += stability;
-//             return <CardStep>{ Day: sum, Stability: stability, Grade: grade };
-//         });
-
-//         return { Name: name, Id: parseInt(id), Steps: parsedSteps };
-//     });
-// }
-
-type GetCardsResponse = {
-    min_day: number;
-    cards: Card[];
-}
-
-type CardStep = {
-    day: number;
-    stability: number;
-    grade: number;
-};
-
-type Card = {
-    note_id: number;
+type Circle = {
+    x: number;
+    y: number;
+    radius: number;
+    color: string;
     card_id: number;
-    steps: CardStep[];
-};
+}
+
+function is_inside(circle: Circle, x: number, y: number): boolean {
+    var distance_sq = Math.pow(circle.x - x, 2) + Math.pow(circle.y - y, 2);
+    return distance_sq < (Math.pow(circle.radius, 2) + 9);
+}
 </script>
 
 <style>
+/* style of the body from Anki */
+.isWin {
+    margin: 0px;
+}
+
 .container {
     display: flex;
     flex-direction: column;
 }
 
 .canvas {
-    width: 800px;
-    height: 600px;
     background: black;
-    border: 1px solid black;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    margin: 2px;
+}
+
+.card_info {
+    display: flex;
+    width: 100%;
+}
+
+.card_side {
+    flex: 1;
+    border: 1px solid gray;
+    padding: 2px;
 }
 </style>

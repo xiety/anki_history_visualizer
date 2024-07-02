@@ -14,10 +14,43 @@ from anki.hooks import addHook
 import os
 
 
+@dataclass
+class CardStep:
+    day: int
+    stability: int
+    grade: int
+
+
+@dataclass
+class Card:
+    note_id: int
+    card_id: int
+    steps: List[CardStep]
+
+
+@dataclass
+class GetCardsResponse:
+    min_day: datetime
+    cards: List[Card]
+
+
+@dataclass
+class CardInfoResponse:
+    question: str
+    answer: str
+
+
+class EnhancedJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if dataclasses.is_dataclass(o):
+            return dataclasses.asdict(o)
+        return super().default(o)
+
+
 class HistoryVisualizerDialog(QDialog):
 
     def __init__(self, mw: AnkiQt) -> None:
-        QDialog.__init__(self, None, Qt.WindowType.Window)
+        QDialog.__init__(self, mw)
         mw.garbage_collect_on_dialog_finish(self)
 
         layout = QVBoxLayout()
@@ -26,12 +59,12 @@ class HistoryVisualizerDialog(QDialog):
         self.mw = mw
         self.deck = self.mw.col.decks.current()
 
-        self.name = "HistoryVisualizer"
-        self.setWindowTitle("History Visualizer: " + self.deck['name'])
+        self.name = 'HistoryVisualizer'
+        self.setWindowTitle('History Visualizer: ' + self.deck['name'])
         self.period = 0
 
-        self.setObjectName("Dialog")
-        self.resize(880, 726)
+        self.setObjectName('Dialog')
+        self.resize(840, 770)
 
         self.web = AnkiWebView()
         layout.addWidget(self.web)
@@ -59,7 +92,7 @@ class HistoryVisualizerDialog(QDialog):
         self.web.page().profile().scripts().insert(script)
 
         # pass `js` list to disable jquery loading
-        self.web.stdHtml(body, js=['js/webview.js'], context=self)
+        self.web.stdHtml(body, js=[], context=self)
 
         # debug
         # self.dev = QWebEngineView()
@@ -102,23 +135,6 @@ order by min(r.day) over (partition by n.id, c.id), note_id, card_id, revlog_day
 
         list = mw.col.db.all(query)
 
-        @dataclass
-        class CardStep:
-            day: int
-            stability: int
-            grade: int
-
-        @dataclass
-        class Card:
-            note_id: int
-            card_id: int
-            steps: List[CardStep]
-
-        @dataclass
-        class GetCardsResponse:
-            min_day: datetime
-            cards: List[Card]
-
         if len(list) == 0:
             return []
 
@@ -126,7 +142,7 @@ order by min(r.day) over (partition by n.id, c.id), note_id, card_id, revlog_day
 
         print('min_day', min_day)
 
-        def calculate_periods(group, card_id, due):
+        def calculate_periods(group, due):
             periods = []
             previous_day = min_day
 
@@ -139,33 +155,42 @@ order by min(r.day) over (partition by n.id, c.id), note_id, card_id, revlog_day
 
             return periods
 
-        grouped_data = [Card(note_id, card_id, calculate_periods(g, card_id, due))
+        grouped_data = [Card(note_id, card_id, calculate_periods(g, due))
                         for (note_id, card_id, due), g
                         in groupby(list, key=itemgetter(0, 1, 2))]
 
         return GetCardsResponse(min_day, grouped_data)
 
-    # Open browser
-    # aqt.dialogs.open("Browser", self.mw, search=(link,))
-
     def onBridgeCmd(self, cmd: str) -> Any:
         print('Command: ', cmd)
 
-        class EnhancedJSONEncoder(json.JSONEncoder):
-            def default(self, o):
-                if dataclasses.is_dataclass(o):
-                    return dataclasses.asdict(o)
-                return super().default(o)
+        if ':' in cmd:
+            (cmd, args) = cmd.split(':', 1)
 
         if (cmd == 'get_cards'):
-            return json.dumps(self._get_cards(), cls=EnhancedJSONEncoder)
+            return self._toJson(self._get_cards())
+
+        elif (cmd == 'open_browser'):
+            aqt.dialogs.open('Browser', self.mw, search=(args,))
+            return self._toJson(True)
+
+        elif (cmd == 'card_info'):
+            card_id = int(args)
+            card = mw.col.get_card(card_id)
+            render = card.render_output()
+            question = render.question_text
+            answer = render.answer_text
+            return self._toJson(CardInfoResponse(question, answer))
 
         return 'Unhandled command: ' + cmd
+
+    def _toJson(self, data):
+        return json.dumps(data, cls=EnhancedJSONEncoder)
 
 
 def show_window():
     dialog = HistoryVisualizerDialog(mw)
-    dialog.exec()
+    dialog.show()
 
 
 def add_menu_item():

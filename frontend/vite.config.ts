@@ -11,6 +11,7 @@ export default defineConfig({
   base: "./",
   build: {
     outDir: '../dist',
+    minify: false,
     rollupOptions: {
       output: {
         entryFileNames: `[name].js`,
