@@ -14,6 +14,8 @@ Main menu: Tools | Visualize History
 
 **Changelog:**
 
+- 04.07.2024 **v0.3** - Ball size and day height parameters, parent decks support, window resize support
+
 - 03.07.2024 **v0.2** - Hover to show card info, click to open card browser, play button, horizontal lines
 
 - 02.07.2024 **v0.1** - Initial prototype

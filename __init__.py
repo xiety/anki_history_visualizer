@@ -3,14 +3,14 @@ import dataclasses
 import datetime
 from itertools import groupby
 import json
-from operator import attrgetter, itemgetter
+from operator import itemgetter
 from typing import Any, List
-from aqt import QWebEngineScript, Qt, mw
+from aqt import QWebEngineScript, QWebEngineView, Qt, mw
 from aqt.main import AnkiQt
 import aqt
-from aqt.qt import QAction, QDialog, QVBoxLayout, QWebEngineView
+from aqt.qt import QAction, QDialog, QVBoxLayout
 from aqt.webview import AnkiWebView
-from anki.hooks import addHook
+from anki.utils import ids2str
 import os
 
 
@@ -53,6 +53,9 @@ class HistoryVisualizerDialog(QDialog):
         QDialog.__init__(self, mw)
         mw.garbage_collect_on_dialog_finish(self)
 
+        self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint)
+        self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
+
         layout = QVBoxLayout()
         self.setLayout(layout)
 
@@ -66,8 +69,18 @@ class HistoryVisualizerDialog(QDialog):
         self.setObjectName('Dialog')
         self.resize(840, 770)
 
-        self.web = AnkiWebView()
+        self._add_webview()
         layout.addWidget(self.web)
+
+        # debug
+        # self.dev = QWebEngineView()
+        # self.web.page().setDevToolsPage(self.dev.page())
+        # self.dev.show()
+
+        self.activateWindow()
+
+    def _add_webview(self):
+        self.web = AnkiWebView()
 
         self.web.set_bridge_command(self.onBridgeCmd, self)
 
@@ -94,15 +107,39 @@ class HistoryVisualizerDialog(QDialog):
         # pass `js` list to disable jquery loading
         self.web.stdHtml(body, js=[], context=self)
 
-        # debug
-        # self.dev = QWebEngineView()
-        # layout.addWidget(self.dev)
-        # self.web.page().setDevToolsPage(self.dev.page())
+    def _calculate_periods(self, group, due, min_day):
+        periods = []
+        previous_day = min_day
 
-        self.activateWindow()
+        for _, _, _, day, ease in group:
+            stability = day - previous_day
+            periods.append(CardStep(day - min_day, stability, ease))
+            previous_day = day
 
-    def _get_cards(self):
+        periods.append(CardStep(due - min_day, due - previous_day, 0))
+
+        return periods
+
+    def _get_cards(self) -> GetCardsResponse:
         deck_id = self.deck['id']
+
+        list = self.query_cards(deck_id)
+
+        if len(list) == 0:
+            return GetCardsResponse(None, [])
+
+        min_day = min(list, key=itemgetter(3))[3]
+
+        print('min_day', min_day)
+
+        grouped_data = [Card(note_id, card_id, self._calculate_periods(g, due, min_day))
+                        for (note_id, card_id, due), g
+                        in groupby(list, key=itemgetter(0, 1, 2))]
+
+        return GetCardsResponse(min_day, grouped_data)
+
+    def query_cards(self, deck_id):
+        dids = [id for (_, id) in mw.col.decks.deck_and_child_name_ids(deck_id)]
 
         rollover = mw.col.conf.get('rollover', 4) * 60 * 60 * 1000
 
@@ -127,7 +164,7 @@ inner join (
     ) r
 ) r
 on r.cid = c.id and r.rn = 1
-where c.did = {deck_id}
+where c.did in {ids2str(dids)}
 order by min(r.day) over (partition by n.id, c.id), note_id, card_id, revlog_day
         """
 
@@ -135,31 +172,7 @@ order by min(r.day) over (partition by n.id, c.id), note_id, card_id, revlog_day
 
         list = mw.col.db.all(query)
 
-        if len(list) == 0:
-            return []
-
-        min_day = min(list, key=itemgetter(3))[3]
-
-        print('min_day', min_day)
-
-        def calculate_periods(group, due):
-            periods = []
-            previous_day = min_day
-
-            for _, _, _, day, ease in group:
-                stability = day - previous_day
-                periods.append(CardStep(day - min_day, stability, ease))
-                previous_day = day
-
-            periods.append(CardStep(due - min_day, due - previous_day, 0))
-
-            return periods
-
-        grouped_data = [Card(note_id, card_id, calculate_periods(g, due))
-                        for (note_id, card_id, due), g
-                        in groupby(list, key=itemgetter(0, 1, 2))]
-
-        return GetCardsResponse(min_day, grouped_data)
+        return list
 
     def onBridgeCmd(self, cmd: str) -> Any:
         print('Command: ', cmd)
