@@ -10,9 +10,13 @@ Shift+Click to select deck in main Anki window
 
 Main menu: Tools | Visualize History
 
-![Screenshot](docs/demo1.gif?raw=true)
+![Screenshot 1](docs/circles.png?raw=true)
+
+![Screenshot 2](docs/squares.png?raw=true)
 
 **Changelog:**
+
+- 09.07.2024 **v0.4** - Square visualization, animation speed, open card info
 
 - 04.07.2024 **v0.3** - Ball size and day height parameters, parent decks support, window resize support
 

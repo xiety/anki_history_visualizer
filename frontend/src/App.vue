@@ -5,7 +5,8 @@
 
 <script setup lang="ts">
 import Visualizer from './Visualizer.vue';
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, provide } from 'vue';
+import { Api } from './api';
 
 const loading = ref(true);
 
@@ -25,4 +26,13 @@ onMounted(() => {
 onUnmounted(() => {
     clearInterval(interval);
 });
+
+provide('api', new Api());
 </script>
+<style>
+/* style of the body from Anki */
+.isWin {
+    margin: 0px;
+    overflow-y: scroll;
+}
+</style>

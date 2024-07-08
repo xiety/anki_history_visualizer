@@ -6,6 +6,7 @@ import json
 from operator import itemgetter
 from typing import Any, List
 from aqt import QWebEngineScript, QWebEngineView, Qt, mw
+from aqt.browser.card_info import BrowserCardInfo
 from aqt.main import AnkiQt
 import aqt
 from aqt.qt import QAction, QDialog, QVBoxLayout
@@ -50,8 +51,7 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 class HistoryVisualizerDialog(QDialog):
 
     def __init__(self, mw: AnkiQt) -> None:
-        QDialog.__init__(self, mw)
-        mw.garbage_collect_on_dialog_finish(self)
+        QDialog.__init__(self, parent=None)
 
         self.setWindowFlag(Qt.WindowType.WindowMinimizeButtonHint)
         self.setWindowFlag(Qt.WindowType.WindowMaximizeButtonHint)
@@ -71,6 +71,8 @@ class HistoryVisualizerDialog(QDialog):
 
         self._add_webview()
         layout.addWidget(self.web)
+
+        self._card_info = BrowserCardInfo(self.mw)
 
         # debug
         # self.dev = QWebEngineView()
@@ -187,12 +189,20 @@ order by min(r.day) over (partition by n.id, c.id), note_id, card_id, revlog_day
             aqt.dialogs.open('Browser', self.mw, search=(args,))
             return self._toJson(True)
 
+        elif (cmd == 'open_card_info'):
+            self._card_info.show()
+            return self._toJson(True)
+
         elif (cmd == 'card_info'):
             card_id = int(args)
             card = mw.col.get_card(card_id)
+
+            self._card_info.set_card(card)
+
             render = card.render_output()
             question = render.question_text
             answer = render.answer_text
+
             return self._toJson(CardInfoResponse(question, answer))
 
         return 'Unhandled command: ' + cmd

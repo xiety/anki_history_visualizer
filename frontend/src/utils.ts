@@ -29,6 +29,14 @@ export function rainbow(progress: number): string {
     }
 }
 
+export function lerp_color(r1: number, g1: number, b1: number, r2: number, g2: number, b2: number, percent: number) {
+    const r = Math.round(r1 + (r2 - r1) * percent);
+    const g = Math.round(g1 + (g2 - g1) * percent);
+    const b = Math.round(b1 + (b2 - b1) * percent);
+
+    return `rgba(${r}, ${g}, ${b}, 1)`;
+}
+
 export function addDays(date: Date, days: number): Date {
     let result = new Date(date);
     result.setDate(result.getDate() + days);
