@@ -1,19 +1,18 @@
 <template>
     <div class="container">
         <div class="modes">
-            <div>
-                <input id="mode_circles" type="radio" v-model="mode" value="circles">
-                <label for="mode_circles">Circles</label>
-            </div>
-            <div>
-                <input id="mode_squares" type="radio" v-model="mode" value="squares">
-                <label for="mode_squares">Squares</label>
+            <div v-for="(visualizer, id) in visualizers">
+                <input :id="id" type="radio" v-model="mode" :value="id">
+                <label :for="id">{{ visualizer.name }}</label>
             </div>
         </div>
-        <KeepAlive>
-            <component :is="visualizers[mode]" :width="width" :height="height" :slider_value="slider_value"
-                :records="records" :selected_card_id="selected_card_id" @clicked="handle_clicked" />
-        </KeepAlive>
+        <div>
+            <KeepAlive>
+                <component :is="visualizers[mode].component" :width="width" :height="height"
+                    :slider_value="slider_value" :records="records" :selected_card_id="selected_card_id"
+                    @clicked="handle_clicked" />
+            </KeepAlive>
+        </div>
         <input type="range" step="1" v-model.number="slider_value" :min="0" :max="max_step" />
         <div class="toolbar">
             <div class="date_info">{{ current_date_text }}</div>
@@ -32,7 +31,7 @@
 
 <script setup lang="ts">
 import Parameter from './Parameter.vue';
-import VisualizerCirlces from './VisualizerCircles.vue';
+import VisualizerCircles from './VisualizerCircles.vue';
 import VisualizerSquares from './VisualizerSquares.vue';
 import { onMounted, onUnmounted, ref, shallowRef, computed, watch, inject } from 'vue';
 import { type ApiInterface, type Card } from './api';
@@ -40,7 +39,6 @@ import { addDays, format_date } from './utils';
 
 const api = inject<ApiInterface>('api')!;
 
-const mode = ref<'circles' | 'squares'>('circles');
 const animation_speed = ref<number>(30);
 const slider_value = ref(0);
 const max_step = ref(0);
@@ -58,9 +56,11 @@ const msInDay = 60 * 60 * 24 * 1000;
 const daysToAdd = 0;
 
 const visualizers = {
-    'circles': VisualizerCirlces,
-    'squares': VisualizerSquares,
-}
+    'circles': { name: 'Circles', component: VisualizerCircles },
+    'squares': { name: 'Squares', component: VisualizerSquares },
+};
+
+const mode = ref<keyof typeof visualizers>(Object.keys(visualizers)[0] as keyof typeof visualizers);
 
 function handle_clicked(id: number) {
     selected_card_id.value = id;

@@ -8,13 +8,33 @@ To download this add-on, please copy and paste the following code into Anki:
 
 Shift+Click to select deck in main Anki window
 
-Main menu: Tools | Visualize History
+Main menu: **Tools** | **Visualize History**
+
+### Circles
 
 ![Screenshot 1](docs/circles.png?raw=true)
 
+The size of the ball is the total number of reviews. The color of the ball is the stability.
+
+The maximum height the ball jumps is the stability too.
+
+The bottom of the screen is the current day's reviews.
+
+The ball falls to the bottom, you review it, and it jumps back to the height of it's current stability.
+
+You can click on a circle to see the card's preview at the bottom.
+
+### Squares
+
 ![Screenshot 2](docs/squares.png?raw=true)
 
-**Changelog:**
+Review colors: Red - Again, Blue - Hard, Green - Good, Yellow - Easy
+
+The more stable, the more purple the square.
+
+You can click on a square to see the card's preview at the bottom.
+
+## Changelog:
 
 - 09.07.2024 **v0.4** - Square visualization, animation speed, open card info
 

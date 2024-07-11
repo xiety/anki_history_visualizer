@@ -48,7 +48,6 @@ onMounted(() => {
     refresh_canvas();
 });
 
-
 function find_square(e: MouseEvent) {
     if (!canvas.value)
         return undefined;
