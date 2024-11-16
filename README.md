@@ -10,6 +10,8 @@ Shift+Click to select deck in main Anki window
 
 Main menu: **Tools** | **Visualize History**
 
+You can click on a circle or a square to see the card's preview at the bottom.
+
 ### Circles
 
 ![Screenshot 1](docs/circles.png?raw=true)
@@ -22,8 +24,6 @@ The bottom of the screen is the current day's reviews.
 
 The ball falls to the bottom, you review it, and it jumps back to the height of it's current stability.
 
-You can click on a circle to see the card's preview at the bottom.
-
 ### Squares
 
 ![Screenshot 2](docs/squares.png?raw=true)
@@ -32,9 +32,17 @@ Review colors: Red - Again, Blue - Hard, Green - Good, Yellow - Easy
 
 The more stable, the more purple the square.
 
-You can click on a square to see the card's preview at the bottom.
+### Future Due
+
+![Screenshot 3](docs/future.png?raw=true)
+
+Colors: Red - Again, Blue - Hard, Green - Good, Yellow - Easy, Dark cyan - New card
+
+The more stable, the more purple the square.
 
 ## Changelog:
+
+- 16.11.2024 **v0.5** - Future Due visualization
 
 - 09.07.2024 **v0.4** - Square visualization, animation speed, open card info
 

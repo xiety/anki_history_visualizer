@@ -36,6 +36,7 @@ import VisualizerSquares from './VisualizerSquares.vue';
 import { onMounted, onUnmounted, ref, shallowRef, computed, watch, inject } from 'vue';
 import { type ApiInterface, type Card } from './api';
 import { addDays, format_date } from './utils';
+import VisualizerFuture from './VisualizerFuture.vue';
 
 const api = inject<ApiInterface>('api')!;
 
@@ -58,6 +59,7 @@ const daysToAdd = 0;
 const visualizers = {
     'circles': { name: 'Circles', component: VisualizerCircles },
     'squares': { name: 'Squares', component: VisualizerSquares },
+    'future': { name: 'Future', component: VisualizerFuture },
 };
 
 const mode = ref<keyof typeof visualizers>(Object.keys(visualizers)[0] as keyof typeof visualizers);

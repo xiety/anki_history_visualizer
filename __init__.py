@@ -132,8 +132,6 @@ class HistoryVisualizerDialog(QDialog):
 
         min_day = min(list, key=itemgetter(3))[3]
 
-        print('min_day', min_day)
-
         grouped_data = [Card(note_id, card_id, self._calculate_periods(g, due, min_day))
                         for (note_id, card_id, due), g
                         in groupby(list, key=itemgetter(0, 1, 2))]
@@ -143,7 +141,7 @@ class HistoryVisualizerDialog(QDialog):
     def query_cards(self, deck_id):
         dids = [id for (_, id) in mw.col.decks.deck_and_child_name_ids(deck_id)]
 
-        rollover = mw.col.conf.get('rollover', 4) * 60 * 60 * 1000
+        rollover = mw.col.conf.get('rollover', 4) * 60 * 60 * 1000 # day_cutoff?
 
         query = f"""
 select n.id note_id, c.id card_id,
@@ -170,15 +168,11 @@ where c.did in {ids2str(dids)}
 order by min(r.day) over (partition by n.id, c.id), note_id, card_id, revlog_day
         """
 
-        print(query)
-
         list = mw.col.db.all(query)
 
         return list
 
     def onBridgeCmd(self, cmd: str) -> Any:
-        print('Command: ', cmd)
-
         if ':' in cmd:
             (cmd, args) = cmd.split(':', 1)
 
