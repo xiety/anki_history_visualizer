@@ -40,7 +40,13 @@ Colors: Red - Again, Blue - Hard, Green - Good, Yellow - Easy, Dark cyan - New c
 
 The more stable, the more purple the square.
 
+### Stars
+
+![Screenshot 3](docs/stars.png?raw=true)
+
 ## Changelog:
+
+- 18.01.2025 **v0.6** - Stars visualization
 
 - 16.11.2024 **v0.5** - Future Due visualization
 

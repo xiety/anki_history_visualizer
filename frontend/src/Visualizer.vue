@@ -33,10 +33,11 @@
 import Parameter from './Parameter.vue';
 import VisualizerCircles from './VisualizerCircles.vue';
 import VisualizerSquares from './VisualizerSquares.vue';
+import VisualizerFuture from './VisualizerFuture.vue';
+import VisualizerStars from './VisualizerStars.vue';
 import { onMounted, onUnmounted, ref, shallowRef, computed, watch, inject } from 'vue';
 import { type ApiInterface, type Card } from './api';
 import { addDays, format_date } from './utils';
-import VisualizerFuture from './VisualizerFuture.vue';
 
 const api = inject<ApiInterface>('api')!;
 
@@ -60,6 +61,7 @@ const visualizers = {
     'circles': { name: 'Circles', component: VisualizerCircles },
     'squares': { name: 'Squares', component: VisualizerSquares },
     'future': { name: 'Future', component: VisualizerFuture },
+    'stars': { name: 'Stars', component: VisualizerStars },
 };
 
 const mode = ref<keyof typeof visualizers>(Object.keys(visualizers)[0] as keyof typeof visualizers);
