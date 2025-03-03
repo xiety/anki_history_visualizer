@@ -93,7 +93,7 @@ function generate() {
                 if (revlogPrev.day === props.slider_value) {
                     color = grade_colors[revlogPrev.grade - 1];
                 } else {
-                    const stability_percent = Math.min(Math.max(revlogNext.stability / Math.max(1, max_stability.value), 0), 0.99);
+                    const stability_percent = Math.min(Math.max(revlogNext.stability_due / Math.max(1, max_stability.value), 0), 0.99);
                     color = lerp_color(0, 0, 0, 255, 0, 255, stability_percent);
                 }
             }

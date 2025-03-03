@@ -95,7 +95,7 @@ function generate() {
                 const reviews_count = count(card.steps, (a) => a.day <= props.slider_value);
                 const size = Math.max(1, (3 + (reviews_count * box_width) / 3) * (ball_size.value / 100.0));
 
-                const stability_percent = Math.min(Math.max(revlogNext.stability / Math.max(1, max_stability.value), 0), 0.99);
+                const stability_percent = Math.min(Math.max(revlogNext.stability_due / Math.max(1, max_stability.value), 0), 0.99);
                 const color = rainbow(stability_percent);
 
                 circles.push({ card_id: card.card_id, x: x, y: y, radius: size / 2, color: color });

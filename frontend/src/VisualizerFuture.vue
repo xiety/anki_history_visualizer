@@ -121,7 +121,7 @@ function generate() {
                 const revlogPrev = revlog_index > 0 ? card.steps[revlog_index - 1] : undefined;
 
                 if (revlogPrev) {
-                    const stability_percent = Math.min(Math.max(revlog.stability / Math.max(1, max_stability.value), 0), 0.99);
+                    const stability_percent = Math.min(Math.max(revlog.stability_due / Math.max(1, max_stability.value), 0), 0.99);
                     color = lerp_color(0, 0, 0, 255, 0, 255, stability_percent);
                 }
             }

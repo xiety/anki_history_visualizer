@@ -19,6 +19,7 @@ import os
 class CardStep:
     day: int
     stability: int
+    stability_due: int
     grade: int
 
 
@@ -113,12 +114,13 @@ class HistoryVisualizerDialog(QDialog):
         periods = []
         previous_day = min_day
 
-        for _, _, _, day, ease in group:
+        for _, _, _, day, ease, lastivl in group:
             stability = day - previous_day
-            periods.append(CardStep(day - min_day, stability, ease))
+            stability_due = lastivl if lastivl else stability
+            periods.append(CardStep(day - min_day, stability, stability_due, ease))
             previous_day = day
 
-        periods.append(CardStep(due - min_day, due - previous_day, 0))
+        periods.append(CardStep(due - min_day, due - previous_day, due - previous_day, 0))
 
         return periods
 
@@ -148,14 +150,14 @@ select n.id note_id, c.id card_id,
         case when c.queue = 1 then cast(c.due / 86400.0 as int)
              when c.queue = 2 or c.queue = -2 then cast(col.crt / 86400.0 as int) + c.due
              end card_due,
-        r.day revlog_day, r.ease revlog_ease
+        r.day revlog_day, r.ease revlog_ease, case when r.lastivl > 0 then r.lastivl else null end lastivl
 from notes n
 cross join col
 inner join cards c
     on c.nid = n.id and c.queue in (1, 2) -- 1=learning, 2=review
 inner join (
     select r.cid, r.ease, r.lastivl, r.day,
-            row_number() over(partition by r.cid, r.day order by r.id) as rn 
+            row_number() over(partition by r.cid, r.day order by r.id) as rn
     from (
     select r.id, r.cid, r.ease, r.lastivl,
         cast((r.id - {rollover}) / 86400000.0 as int) AS day

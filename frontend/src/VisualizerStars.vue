@@ -100,7 +100,7 @@ function generate() {
                 const distance = percent * props.width;
                 const { x, y } = calc_position(distance, angle, center_x, center_y);
 
-                const stability_percent = Math.min(Math.max(revlogNext.stability / Math.max(1, max_stability.value), 0), 0.99);
+                const stability_percent = Math.min(Math.max(revlogNext.stability_due / Math.max(1, max_stability.value), 0), 0.99);
                 const color = rainbow(stability_percent);
 
                 const size = ball_size.value;

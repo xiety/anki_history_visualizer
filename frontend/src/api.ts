@@ -41,6 +41,7 @@ export type GetCardsResponse = {
 export type CardStep = {
     day: number;
     stability: number;
+    stability_due: number;
     grade: number;
 };
 
