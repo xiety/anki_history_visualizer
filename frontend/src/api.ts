@@ -38,7 +38,7 @@ export type GetCardsResponse = {
     cards: Card[];
 }
 
-export type CardStep = {
+export type Revlog = {
     day: number;
     stability: number;
     stability_due: number;
@@ -48,7 +48,7 @@ export type CardStep = {
 export type Card = {
     note_id: number;
     card_id: number;
-    steps: CardStep[];
+    steps: Revlog[];
 };
 
 export type CardInfoResponse = {
