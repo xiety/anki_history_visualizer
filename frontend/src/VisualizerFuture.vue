@@ -12,7 +12,7 @@
 import Parameter from './Parameter.vue';
 import { type Card } from './api';
 import { nextTick, onMounted, ref, watch } from 'vue';
-import { last, lerp_color } from './utils';
+import { lerp_color } from './utils';
 
 const props = defineProps({
     records: { type: Array<Card>, required: true },
@@ -64,7 +64,7 @@ function find_square(e: MouseEvent) {
     const rect = canvas.value.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const square = last(current_squares, (a) => is_inside(a, x, y));
+    const square = current_squares.findLast((a) => is_inside(a, x, y));
 
     return square;
 }
@@ -88,12 +88,12 @@ function initialize_squares() {
 }
 
 function compare(card_a: Card, card_b: Card): number {
-    const revlogPrev_a = last(card_a.steps, (a) => a.day < props.slider_value);
+    const revlogPrev_a = card_a.steps.findLast((a) => a.day < props.slider_value);
 
     if (!revlogPrev_a)
         return -1;
 
-    const revlogPrev_b = last(card_b.steps, (a) => a.day < props.slider_value);
+    const revlogPrev_b = card_b.steps.findLast((a) => a.day < props.slider_value);
 
     if (!revlogPrev_b)
         return 1;
@@ -105,8 +105,7 @@ function generate() {
     const dic = new Map<number, number>();
     const sorted = props.records.toSorted(compare);
 
-    for (let i = 0; i < sorted.length; ++i) {
-        const card = sorted[i];
+    for (const card of sorted) {
         const target_square = target_squares.find((a) => a.card_id == card.card_id)!;
 
         const revlog_index = card.steps.findIndex((a) => a.day >= props.slider_value);
@@ -116,7 +115,7 @@ function generate() {
             let color = 'DarkCyan';
 
             if (revlog.day === props.slider_value) {
-                color = grade_colors[revlog.grade - 1];
+                color = grade_colors[revlog.grade - 1]!;
             } else {
                 const revlogPrev = revlog_index > 0 ? card.steps[revlog_index - 1] : undefined;
 
@@ -150,8 +149,8 @@ function animate() {
     let draw_required = false;
 
     for (let i = 0; i < props.records.length; ++i) {
-        const target_square = target_squares[i];
-        const current_square = current_squares[i];
+        const target_square = target_squares[i]!;
+        const current_square = current_squares[i]!;
 
         const diff_x = target_square.x - current_square.x;
         const diff_y = target_square.y - current_square.y;

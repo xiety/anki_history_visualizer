@@ -12,7 +12,7 @@
 import Parameter from './Parameter.vue';
 import { type Card } from './api';
 import { nextTick, onMounted, ref, watch } from 'vue';
-import { count, last, rainbow } from './utils';
+import { count, rainbow } from './utils';
 
 const props = defineProps({
     records: { type: Array<Card>, required: true },
@@ -60,7 +60,7 @@ function find_circle(e: MouseEvent) {
     const rect = canvas.value.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const circle = last(circles, (a) => is_inside(a, x, y));
+    const circle = circles.findLast((a) => is_inside(a, x, y));
 
     return circle;
 }
@@ -82,7 +82,7 @@ function generate() {
         const revlogNext = card.steps.find((a) => a.day > props.slider_value);
 
         if (revlogNext) {
-            const revlogPrev = last(card.steps, (a) => a.day <= props.slider_value);
+            const revlogPrev = card.steps.findLast((a) => a.day <= props.slider_value);
 
             if (revlogPrev) {
                 const percent = Math.min(Math.max((revlogNext.day - props.slider_value) / revlogNext.stability, 0), 1);

@@ -11,7 +11,7 @@
 import Parameter from './Parameter.vue';
 import { type Card } from './api';
 import { nextTick, onMounted, ref, watch } from 'vue';
-import { last, lerp_color } from './utils';
+import { lerp_color } from './utils';
 
 const props = defineProps({
     records: { type: Array<Card>, required: true },
@@ -55,7 +55,7 @@ function find_square(e: MouseEvent) {
     const rect = canvas.value.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const square = last(squares, (a) => is_inside(a, x, y));
+    const square = squares.findLast((a) => is_inside(a, x, y));
 
     return square;
 }
@@ -87,11 +87,11 @@ function generate() {
         let color = 'black';
 
         if (revlogNext) {
-            const revlogPrev = last(card.steps, (a) => a.day <= props.slider_value);
+            const revlogPrev = card.steps.findLast((a) => a.day <= props.slider_value);
 
             if (revlogPrev) {
                 if (revlogPrev.day === props.slider_value) {
-                    color = grade_colors[revlogPrev.grade - 1];
+                    color = grade_colors[revlogPrev.grade - 1]!;
                 } else {
                     const stability_percent = Math.min(Math.max(revlogNext.stability_due / Math.max(1, max_stability.value), 0), 0.99);
                     color = lerp_color(0, 0, 0, 255, 0, 255, stability_percent);

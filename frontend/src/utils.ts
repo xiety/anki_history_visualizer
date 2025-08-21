@@ -1,15 +1,7 @@
-export function last<T>(arr: T[], predicate: (item: T) => boolean): T | undefined {
-    for (let i = arr.length - 1; i >= 0; i--) {
-        if (predicate(arr[i]))
-            return arr[i];
-    }
-    return undefined;
-}
-
 export function count<T>(arr: T[], predicate: (item: T) => boolean): number {
     let counter = 0;
-    for (let i = 0; i < arr.length; ++i) {
-        if (predicate(arr[i]))
+    for (const item of arr) {
+        if (predicate(item))
             counter++;
     }
     return counter;
