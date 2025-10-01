@@ -16,22 +16,26 @@ import os
 
 
 @dataclass
-class CardStep:
+class Revlog:
+    revlog_id: int
     day: int
-    stability: int
+    revlog_type: int
+    interval_due: int
     grade: int
-
+    counter: int
 
 @dataclass
 class Card:
     note_id: int
     card_id: int
-    steps: List[CardStep]
+    due_day: int
+    steps: List[Revlog]
 
 
 @dataclass
 class GetCardsResponse:
     min_day: datetime
+    max_day: datetime
     cards: List[Card]
 
 
@@ -49,7 +53,6 @@ class EnhancedJSONEncoder(json.JSONEncoder):
 
 
 class HistoryVisualizerDialog(QDialog):
-
     def __init__(self, mw: AnkiQt) -> None:
         QDialog.__init__(self, parent=None)
 
@@ -75,9 +78,9 @@ class HistoryVisualizerDialog(QDialog):
         self._card_info = BrowserCardInfo(self.mw)
 
         # debug
-        # self.dev = QWebEngineView()
-        # self.web.page().setDevToolsPage(self.dev.page())
-        # self.dev.show()
+        #self.dev = QWebEngineView()
+        #self.web.page().setDevToolsPage(self.dev.page())
+        #self.dev.show()
 
         self.activateWindow()
 
@@ -109,68 +112,114 @@ class HistoryVisualizerDialog(QDialog):
         # pass `js` list to disable jquery loading
         self.web.stdHtml(body, js=[], context=self)
 
-    def _calculate_periods(self, group, due, min_day):
+    def _calculate_periods(self, group, due, min_day, card_id):
         periods = []
         previous_day = min_day
+        counter = 0
 
-        for _, _, _, day, ease in group:
-            stability = day - previous_day
-            periods.append(CardStep(day - min_day, stability, ease))
+        for row in group:
+            day, ease, ivl, revlog_type, revlog_id = row[5], row[6], row[7], row[8], row[9]
+
+            interval_due = ivl
+
+            periods.append(Revlog(revlog_id, day - min_day, revlog_type, interval_due, ease, counter))
             previous_day = day
 
-        periods.append(CardStep(due - min_day, due - previous_day, 0))
+            if ease > 0 or revlog_type == -1:
+                counter += 1
+
+        # if the due review is not on the same day as the last review
+        if due != previous_day:
+            periods.append(Revlog(-card_id, due - min_day, -1, due - previous_day, 0, counter))
 
         return periods
 
     def _get_cards(self) -> GetCardsResponse:
         deck_id = self.deck['id']
+        card_list = self.query_cards(deck_id)
 
-        list = self.query_cards(deck_id)
+        if not card_list:
+            return GetCardsResponse(0, 0, [])
 
-        if len(list) == 0:
-            return GetCardsResponse(None, [])
+        global_min_day = card_list[0][0]
+        global_max_day = card_list[0][1]
 
-        min_day = min(list, key=itemgetter(3))[3]
-
-        grouped_data = [Card(note_id, card_id, self._calculate_periods(g, due, min_day))
-                        for (note_id, card_id, due), g
-                        in groupby(list, key=itemgetter(0, 1, 2))]
-
-        return GetCardsResponse(min_day, grouped_data)
+        grouped_data = [
+            Card(
+                note_id=note_id,
+                card_id=card_id,
+                due_day=due_day - global_min_day,
+                steps=self._calculate_periods(g, due_day, global_min_day, card_id)
+            )
+            for (note_id, card_id, due_day), g
+            in groupby(card_list, key=itemgetter(2, 3, 4))
+        ]
+        return GetCardsResponse(global_min_day, global_max_day, grouped_data)
 
     def query_cards(self, deck_id):
         dids = [id for (_, id) in mw.col.decks.deck_and_child_name_ids(deck_id)]
-
-        rollover = mw.col.conf.get('rollover', 4) * 60 * 60 * 1000 # day_cutoff?
+        rollover = mw.col.conf.get('rollover', 4) * 3600 * 1000
 
         query = f"""
-select n.id note_id, c.id card_id,
-        case when c.queue = 1 then cast(c.due / 86400.0 as int)
-             when c.queue = 2 or c.queue = -2 then cast(col.crt / 86400.0 as int) + c.due
-             end card_due,
-        r.day revlog_day, r.ease revlog_ease
-from notes n
-cross join col
-inner join cards c
-    on c.nid = n.id and c.queue in (1, 2) -- 1=learning, 2=review
-inner join (
-    select r.cid, r.ease, r.lastivl, r.day,
-            row_number() over(partition by r.cid, r.day order by r.id) as rn 
-    from (
-    select r.id, r.cid, r.ease, r.lastivl,
-        cast((r.id - {rollover}) / 86400000.0 as int) AS day
-    from revlog r
-    where r.type in (0, 1, 3)
-    ) r
-) r
-on r.cid = c.id and r.rn = 1
-where c.did in {ids2str(dids)}
-order by min(r.day) over (partition by n.id, c.id), note_id, card_id, revlog_day
-        """
+WITH target_cards AS (
+    SELECT id, nid, queue, due
+    FROM cards
+    where did in {ids2str(dids)} and queue in (1, 2)
+),
+day_calc AS (
+    SELECT
+        r.id AS revlog_id,
+        r.cid,
+        r.ease,
+        r.type,
+        r.ivl,
+        (r.id - {rollover}) / 86400000 AS day
+    FROM revlog r
+    JOIN target_cards tc ON r.cid = tc.id
+),
+revlog_data AS (
+    SELECT
+        revlog_id,
+        cid,
+        ease,
+        type,
+        day,
+        ROW_NUMBER() OVER (
+            PARTITION BY cid, day
+            ORDER BY IIF(ease > 0, 0, 1), revlog_id
+        ) AS rn_first,
+        FIRST_VALUE(IIF(ivl >= 0, ivl, 0))
+            OVER (PARTITION BY cid, day ORDER BY revlog_id DESC) AS ivl
+    FROM day_calc
+)
 
-        list = mw.col.db.all(query)
+SELECT
+    (SELECT MIN(day) FROM revlog_data WHERE rn_first = 1) AS min_day,
+    (SELECT MAX(day) FROM revlog_data WHERE rn_first = 1) AS max_day,
+    n.id AS note_id,
+    c.id AS card_id,
 
-        return list
+    CASE c.queue
+        WHEN 1 THEN c.due / 86400
+        ELSE (col.crt / 86400) + c.due
+    END AS card_due,
+
+    r.day AS revlog_day,
+    r.ease AS revlog_ease,
+    r.ivl AS ivl,
+    r.type AS revlog_type,
+    r.revlog_id
+FROM notes n
+JOIN cards c ON c.nid = n.id
+JOIN target_cards tc ON tc.id = c.id
+CROSS JOIN col
+LEFT JOIN revlog_data r
+       ON  r.cid = c.id
+       AND r.rn_first = 1
+ORDER BY min(r.day) OVER (PARTITION BY n.id, c.id), note_id, card_id, revlog_day
+"""
+
+        return mw.col.db.all(query)
 
     def onBridgeCmd(self, cmd: str) -> Any:
         if ':' in cmd:

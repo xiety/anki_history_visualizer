@@ -35,19 +35,34 @@ export class Api implements ApiInterface {
 
 export type GetCardsResponse = {
     min_day: number;
+    max_day: number;
     cards: Card[];
 }
 
-export type CardStep = {
+export const enum RevlogType {
+    Learn = 0,
+    Review = 1,
+    Relearn = 2,
+    Filtered = 3,
+    Manual = 4,
+    Rescheduled = 5,
+    Due = -1,
+}
+
+export type Revlog = {
+    revlog_id: number;
     day: number;
-    stability: number;
+    revlog_type: RevlogType;
+    interval_due: number;
     grade: number;
+    counter: number;
 };
 
 export type Card = {
     note_id: number;
     card_id: number;
-    steps: CardStep[];
+    steps: Revlog[];
+    due_day: number;
 };
 
 export type CardInfoResponse = {

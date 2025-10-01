@@ -6,11 +6,11 @@
 <script setup lang="ts">
 import Visualizer from './Visualizer.vue';
 import { ref, onMounted, onUnmounted, provide } from 'vue';
-import { Api } from './api';
+import { Api } from './services/api';
 
 const loading = ref(true);
 
-declare global { interface Window { pycmd: any } }
+declare global { interface Window { pycmd: any; } }
 
 let interval: number;
 
@@ -28,6 +28,8 @@ onUnmounted(() => {
 });
 
 provide('api', new Api());
+
+provide('isDemo', false);
 </script>
 <style>
 /* style of the body from Anki */

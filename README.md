@@ -46,6 +46,8 @@ The more stable, the more purple the square.
 
 ## Changelog:
 
+- 01.10.2025 **v0.7** - Revlogs and Bars visualizations
+
 - 18.01.2025 **v0.6** - Stars visualization
 
 - 16.11.2024 **v0.5** - Future Due visualization
