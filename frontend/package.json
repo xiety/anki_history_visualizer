@@ -13,17 +13,17 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@vueuse/core": "^13.9.0",
-    "vue": "^3.5.22"
+    "@vueuse/core": "^14.0.0",
+    "vue": "^3.5.25"
   },
   "devDependencies": {
-    "@tsconfig/node20": "^20.1.6",
-    "@types/node": "^24.6.1",
-    "@vitejs/plugin-vue": "^6.0.1",
+    "@tsconfig/node20": "^20.1.8",
+    "@types/node": "^24.10.1",
+    "@vitejs/plugin-vue": "^6.0.2",
     "@vue/tsconfig": "^0.8.1",
     "npm-run-all2": "^8.0.4",
     "typescript": "~5.9.3",
-    "vite": "^7.1.7",
-    "vue-tsc": "^3.1.0"
+    "vite": "^7.2.4",
+    "vue-tsc": "^3.1.5"
   }
 }
