@@ -12,6 +12,7 @@ const props = defineProps<{
     drawBackground?: (ctx: CanvasRenderingContext2D, canvasSize: CanvasSize, zoomLevel: number, viewport: Viewport) => void;
     virtualSize?: { width: number; height: number; } | null;
     pannable?: boolean;
+    alignBottom?: boolean;
 }>();
 
 const emit = defineEmits<{ (e: 'clicked', payload: { x: number; y: number; }): void; }>();
@@ -52,7 +53,8 @@ const panAndZoom = usePanAndZoom({
     canvas,
     canvasSize,
     virtualSize: computed(() => props.virtualSize ?? undefined),
-    scrollable: computed(() => props.pannable)
+    scrollable: computed(() => props.pannable),
+    alignBottom: computed(() => props.alignBottom ?? false)
 });
 
 watch([panAndZoom.visible, zoomLevel], redrawBackground, { immediate: true });
@@ -66,8 +68,6 @@ function renderFrame(time: number) {
     panAndZoom.withTransformedContext((transformedCtx, visible) => {
         props.drawForeground(transformedCtx, visible);
     }, ctx.value);
-
-    //drawFps(time);
 }
 
 function drawFps(time: number) {

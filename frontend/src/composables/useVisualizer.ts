@@ -3,10 +3,14 @@ import type { CanvasSize, IVisualizer, Shape, Viewport, VisualizerInfo } from '@
 import type InteractiveCanvas from '@/components/InteractiveCanvas.vue';
 import { animateShapes, jumpShapesToTarget } from '@/services/animation';
 
+export interface IAnimationControls {
+    animationSpeed?: number;
+}
+
 export function useVisualizer<TControls extends object, TShape extends Shape>(
     logic: IVisualizer<TControls, TShape>,
     props: { info: VisualizerInfo | null, selectedCardId: number | null; },
-    controls: TControls,
+    controls: TControls & IAnimationControls,
     canvasRef: Ref<InstanceType<typeof InteractiveCanvas> | null>,
     emit: (e: 'clicked', payload: number | null) => void
 ) {
@@ -20,7 +24,7 @@ export function useVisualizer<TControls extends object, TShape extends Shape>(
     );
 
     function foregroundTick(ctx: CanvasRenderingContext2D, viewport: Viewport) {
-        animateShapes(shapes.value, logic.isAnimated, 30);
+        animateShapes(shapes.value, logic.isAnimated, controls.animationSpeed ?? 30);
         logic.drawShapes(ctx, shapes.value, selectedShape.value, viewport);
     }
 

@@ -15,7 +15,7 @@ const props = defineProps<{
 const emit = defineEmits<{ (e: 'clicked', payload: number | null): void; }>();
 
 const canvasRef = ref<InstanceType<typeof InteractiveCanvas> | null>(null);
-const controls = reactive<Controls>({ squareSize: 6, maxStability: 120 });
+const controls = reactive<Controls>({ squareSize: 6, maxStability: 120, animationSpeed: 30 });
 
 const { renderFrame, foregroundTick, drawBackground, onCanvasClick, virtualSize } = useVisualizer(
     logic,
@@ -33,10 +33,12 @@ defineExpose({ renderFrame });
         <template #controls>
             <Parameter name="Size" v-model.number="controls.squareSize" :min="1" :max="20" />
             <Parameter name="Stability" v-model.number="controls.maxStability" :min="1" :max="365" />
+            <Parameter name="Animation" v-model.number="controls.animationSpeed" :min="1" :max="100" />
         </template>
         <template #canvas>
             <InteractiveCanvas ref="canvasRef" :pannable="true" :virtualSize="virtualSize"
-                :draw-background="drawBackground" :draw-foreground="foregroundTick" @clicked="onCanvasClick" />
+                :draw-background="drawBackground" :draw-foreground="foregroundTick" @clicked="onCanvasClick"
+                :align-bottom="true" />
         </template>
     </VisualizerLayout>
 </template>

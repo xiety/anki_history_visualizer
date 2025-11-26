@@ -20,6 +20,7 @@ interface PanAndZoomOptions {
     canvasSize: Ref<{ width: number; height: number; }>;
     virtualSize: Ref<{ width: number; height: number; } | undefined>;
     scrollable: Ref<boolean>;
+    alignBottom?: Ref<boolean>;
 }
 
 export function usePanAndZoom(options: PanAndZoomOptions) {
@@ -30,7 +31,8 @@ export function usePanAndZoom(options: PanAndZoomOptions) {
         canvas,
         canvasSize,
         virtualSize,
-        scrollable
+        scrollable,
+        alignBottom
     } = options;
 
     const scrollLeft = ref(0);
@@ -44,6 +46,16 @@ export function usePanAndZoom(options: PanAndZoomOptions) {
             : { width: canvasSize.value.width, height: canvasSize.value.height };
     });
 
+    function getOffset(zoom: number) {
+        if (!alignBottom?.value) return { x: 0, y: 0 };
+        const containerH = canvasSize.value.height;
+        const contentH = internalVirtualSize.value.height * zoom;
+        const y = (contentH < containerH) ? (containerH - contentH) : 0;
+        return { x: 0, y };
+    }
+
+    const contentOffset = computed(() => getOffset(zoomLevel.value));
+
     watch(zoomLevel, (newZoom, oldZoom) => {
         if (oldZoom === undefined || newZoom === oldZoom) return;
 
@@ -53,13 +65,18 @@ export function usePanAndZoom(options: PanAndZoomOptions) {
         const focalPoint = focalPointForNextZoom || { x: canvasSize.value.width / 2, y: canvasSize.value.height / 2 };
         focalPointForNextZoom = null;
 
-        const virtualFocalX = (wrapper.scrollLeft + focalPoint.x) / oldZoom;
-        const virtualFocalY = (wrapper.scrollTop + focalPoint.y) / oldZoom;
+        const oldOffset = getOffset(oldZoom);
+
+        const virtualFocalX = (wrapper.scrollLeft + focalPoint.x - oldOffset.x) / oldZoom;
+        const virtualFocalY = (wrapper.scrollTop + focalPoint.y - oldOffset.y) / oldZoom;
+
+        const newOffset = getOffset(newZoom);
 
         nextTick(() => {
             if (scrollWrapper.value) {
-                const newScrollLeft = virtualFocalX * newZoom - focalPoint.x;
-                const newScrollTop = virtualFocalY * newZoom - focalPoint.y;
+                const newScrollLeft = virtualFocalX * newZoom - focalPoint.x + newOffset.x;
+                const newScrollTop = virtualFocalY * newZoom - focalPoint.y + newOffset.y;
+
                 scrollWrapper.value.scrollLeft = newScrollLeft;
                 scrollWrapper.value.scrollTop = newScrollTop;
             }
@@ -67,8 +84,8 @@ export function usePanAndZoom(options: PanAndZoomOptions) {
     }, { immediate: true });
 
     const visible = computed(() => new DOMRect(
-        scrollLeft.value / zoomLevel.value,
-        scrollTop.value / zoomLevel.value,
+        (scrollLeft.value - contentOffset.value.x) / zoomLevel.value,
+        (scrollTop.value - contentOffset.value.y) / zoomLevel.value,
         canvasSize.value.width / zoomLevel.value,
         canvasSize.value.height / zoomLevel.value
     ));
@@ -85,6 +102,15 @@ export function usePanAndZoom(options: PanAndZoomOptions) {
         zoomLevel.value = newZoom;
     }
 
+    function getRelativePoint(clientX: number, clientY: number): Point {
+        if (!canvas.value) return { x: 0, y: 0 };
+        const rect = canvas.value.getBoundingClientRect();
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    }
+
     const pointerTracker = usePointerTracker({
         onPan: ({ dx, dy }) => {
             if (!scrollWrapper.value) return;
@@ -92,22 +118,19 @@ export function usePanAndZoom(options: PanAndZoomOptions) {
             scrollWrapper.value.scrollTop -= dy;
         },
         onPinch: ({ scale, center }) => {
-            if (!canvas.value) return;
-            const rect = canvas.value.getBoundingClientRect();
-            const focalPoint = { x: center.x - rect.left, y: center.y - rect.top };
-            setZoom(zoomLevel.value * scale, focalPoint);
+            const point = getRelativePoint(center.x, center.y);
+            setZoom(zoomLevel.value * scale, point);
         },
         onClick: ({ point }) => {
-            if (!canvas.value) return;
-            const rect = canvas.value.getBoundingClientRect();
-            const virtualX = visible.value.x + (point.x - rect.left) / zoomLevel.value;
-            const virtualY = visible.value.y + (point.y - rect.top) / zoomLevel.value;
+            const screen = getRelativePoint(point.x, point.y);
+            const virtualX = (screen.x + scrollLeft.value - contentOffset.value.x) / zoomLevel.value;
+            const virtualY = (screen.y + scrollTop.value - contentOffset.value.y) / zoomLevel.value;
             onClick({ x: virtualX, y: virtualY });
         }
     });
 
     function onPointerDown(e: PointerEvent) {
-        if (e.button === 1) { // Middle mouse button
+        if (e.button === 1) {
             e.preventDefault();
             return;
         }
@@ -134,20 +157,12 @@ export function usePanAndZoom(options: PanAndZoomOptions) {
         const scrollAmount = e.deltaY * -intensity;
         const zoomFactor = Math.exp(scrollAmount);
 
-        // Calculate the change based on the zoom factor (proportional)
         const proportionalChange = zoomLevel.value * (zoomFactor - 1);
-
-        // Determine the direction of change
         const direction = isZoomingOut ? -1 : 1;
-
-        // Use the larger of the proportional change or the minimum absolute step
         const change = direction * Math.max(Math.abs(proportionalChange), MIN_ABSOLUTE_STEP);
-
         const newZoom = zoomLevel.value + change;
 
-        const rect = canvas.value.getBoundingClientRect();
-        const focalPoint = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-
+        const focalPoint = getRelativePoint(e.clientX, e.clientY);
         const clampedZoom = clamp(roundZoom(newZoom), DEFAULT_MIN_ZOOM, DEFAULT_MAX_ZOOM);
 
         setZoom(clampedZoom, focalPoint);

@@ -37,7 +37,8 @@ defineExpose({ renderFrame });
         </template>
         <template #canvas>
             <InteractiveCanvas ref="canvasRef" :pannable="true" :virtualSize="virtualSize"
-                :draw-background="drawBackground" :draw-foreground="foregroundTick" @clicked="onCanvasClick" />
+                :draw-background="drawBackground" :draw-foreground="foregroundTick" @clicked="onCanvasClick"
+                :align-bottom="true" />
         </template>
     </VisualizerLayout>
 </template>

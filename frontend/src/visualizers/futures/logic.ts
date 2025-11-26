@@ -1,8 +1,9 @@
 import type { Viewport, CanvasSize, IVisualizerScreenFit, VisualizerInfo } from '@/types/visualizers';
 import { Status } from '@/types/visualizers';
-import { drawRects, find_rect_at_position, getGradeColor, getIntervalColorRainbow, getIntevalColorLerp, type Rect } from '../common';
+import { drawRects, find_rect_at_position, getGradeColor, getIntevalColorLerp, type Rect } from '../common';
+import type { IAnimationControls } from '@/composables/useVisualizer';
 
-export interface Controls {
+export interface Controls extends IAnimationControls {
     squareSize: number;
     maxStability: number;
 }
