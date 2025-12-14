@@ -1,15 +1,20 @@
 declare var pycmd: (name: string, callback: (json: string) => void) => string;
 
 export interface ApiInterface {
-    get_cards: () => Promise<GetCardsResponse>;
+    get_init_data: () => Promise<GetInitDataResponse>;
+    get_cards: (search_string: string) => Promise<GetCardsResponse>;
     open_browser: (filter: string) => Promise<boolean>;
     card_info: (card_id: number) => Promise<CardInfoResponse>;
     open_card_info: () => Promise<boolean>;
 }
 
 export class Api implements ApiInterface {
-    get_cards = async () => {
-        return await this.exec<GetCardsResponse>('get_cards');
+    get_init_data = async () => {
+        return await this.exec<GetInitDataResponse>('get_init_data');
+    }
+
+    get_cards = async (search_string: string) => {
+        return await this.exec<GetCardsResponse>(`get_cards:${search_string}`);
     }
 
     open_browser = async (filter: string) => {
@@ -31,6 +36,10 @@ export class Api implements ApiInterface {
 
     private pycmd_async = (name: string): Promise<string> =>
         new Promise((resolve) => pycmd(name, resolve));
+}
+
+export type GetInitDataResponse = {
+    deckName: string;
 }
 
 export type GetCardsResponse = {

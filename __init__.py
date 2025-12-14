@@ -24,6 +24,7 @@ class Revlog:
     grade: int
     counter: int
 
+
 @dataclass
 class Card:
     note_id: int
@@ -34,8 +35,8 @@ class Card:
 
 @dataclass
 class GetCardsResponse:
-    min_day: datetime
-    max_day: datetime
+    min_day: int
+    max_day: int
     cards: List[Card]
 
 
@@ -63,7 +64,7 @@ class HistoryVisualizerDialog(QDialog):
         self.setLayout(layout)
 
         self.mw = mw
-        self.deck = self.mw.col.decks.current()
+        self.deck = self.mw.col.decks.current()  # type: ignore
 
         self.name = 'HistoryVisualizer'
         self.setWindowTitle('History Visualizer: ' + self.deck['name'])
@@ -78,9 +79,9 @@ class HistoryVisualizerDialog(QDialog):
         self._card_info = BrowserCardInfo(self.mw)
 
         # debug
-        #self.dev = QWebEngineView()
-        #self.web.page().setDevToolsPage(self.dev.page())
-        #self.dev.show()
+        # self.dev = QWebEngineView()
+        # self.web.page().setDevToolsPage(self.dev.page())
+        # self.dev.show()
 
         self.activateWindow()
 
@@ -107,7 +108,7 @@ class HistoryVisualizerDialog(QDialog):
         script.setWorldId(QWebEngineScript.ScriptWorldId.MainWorld)
         script.setInjectionPoint(QWebEngineScript.InjectionPoint.Deferred)
         script.setRunsOnSubFrames(False)
-        self.web.page().profile().scripts().insert(script)
+        self.web.page().profile().scripts().insert(script)  # type: ignore
 
         # pass `js` list to disable jquery loading
         self.web.stdHtml(body, js=[], context=self)
@@ -134,12 +135,17 @@ class HistoryVisualizerDialog(QDialog):
 
         return periods
 
-    def _get_cards(self) -> GetCardsResponse:
-        deck_id = self.deck['id']
-        card_list = self.query_cards(deck_id)
+    def _get_cards(self, search_string) -> GetCardsResponse:
+        card_list = None
+        try:
+            card_list = self.query_cards(search_string)
+        except:
+            print("HistoryVisualizer: filter error")
 
         if not card_list:
             return GetCardsResponse(0, 0, [])
+
+        print(f"HistoryVisualizer: total {len(card_list)}")
 
         global_min_day = card_list[0][0]
         global_max_day = card_list[0][1]
@@ -154,79 +160,111 @@ class HistoryVisualizerDialog(QDialog):
             for (note_id, card_id, due_day), g
             in groupby(card_list, key=itemgetter(2, 3, 4))
         ]
+
+        print(f"HistoryVisualizer: grouped {len(grouped_data)}")
+
         return GetCardsResponse(global_min_day, global_max_day, grouped_data)
 
-    def query_cards(self, deck_id):
-        dids = [id for (_, id) in mw.col.decks.deck_and_child_name_ids(deck_id)]
-        rollover = mw.col.conf.get('rollover', 4) * 3600 * 1000
+
+    def query_cards(self, search_string):
+        rollover = mw.col.conf.get('rollover', 4) * 3600 * 1000 # type: ignore
+        args = []
+
+        if not search_string or not search_string.strip():
+            target_cards_cte = """
+                target_cards AS (
+                    SELECT id, nid, queue, due
+                    FROM cards
+                    WHERE queue in (1, 2)
+                )
+            """
+        else:
+            card_ids = mw.col.find_cards(search_string)  # type: ignore
+            if not card_ids:
+                return []
+
+            args.append(json.dumps(list(card_ids)))
+
+            target_cards_cte = """
+                selected_ids AS (
+                    SELECT value AS id FROM json_each(?)
+                ),
+                target_cards AS (
+                    SELECT c.id, c.nid, c.queue, c.due
+                    FROM cards c
+                    JOIN selected_ids s ON c.id = s.id
+                    WHERE c.queue in (1, 2)
+                )
+            """
 
         query = f"""
-WITH target_cards AS (
-    SELECT id, nid, queue, due
-    FROM cards
-    where did in {ids2str(dids)} and queue in (1, 2)
-),
-day_calc AS (
-    SELECT
-        r.id AS revlog_id,
-        r.cid,
-        r.ease,
-        r.type,
-        r.ivl,
-        (r.id - {rollover}) / 86400000 AS day
-    FROM revlog r
-    JOIN target_cards tc ON r.cid = tc.id
-),
-revlog_data AS (
-    SELECT
-        revlog_id,
-        cid,
-        ease,
-        type,
-        day,
-        ROW_NUMBER() OVER (
-            PARTITION BY cid, day
-            ORDER BY IIF(ease > 0, 0, 1), revlog_id
-        ) AS rn_first,
-        FIRST_VALUE(IIF(ivl >= 0, ivl, 0))
-            OVER (PARTITION BY cid, day ORDER BY revlog_id DESC) AS ivl
-    FROM day_calc
-)
+        WITH {target_cards_cte},
+        day_calc AS (
+            SELECT
+                r.id AS revlog_id,
+                r.cid,
+                r.ease,
+                r.type,
+                r.ivl,
+                (r.id - {rollover}) / 86400000 AS day
+            FROM revlog r
+            JOIN target_cards tc ON r.cid = tc.id
+        ),
+        revlog_data AS (
+            SELECT
+                revlog_id,
+                cid,
+                ease,
+                type,
+                day,
+                ROW_NUMBER() OVER (
+                    PARTITION BY cid, day
+                    ORDER BY IIF(ease > 0, 0, 1), revlog_id
+                ) AS rn_first,
+                FIRST_VALUE(IIF(ivl >= 0, ivl, 0))
+                    OVER (PARTITION BY cid, day ORDER BY revlog_id DESC) AS ivl
+            FROM day_calc
+        )
 
-SELECT
-    (SELECT MIN(day) FROM revlog_data WHERE rn_first = 1) AS min_day,
-    (SELECT MAX(day) FROM revlog_data WHERE rn_first = 1) AS max_day,
-    n.id AS note_id,
-    c.id AS card_id,
+        SELECT
+            (SELECT MIN(day) FROM revlog_data WHERE rn_first = 1) AS min_day,
+            (SELECT MAX(day) FROM revlog_data WHERE rn_first = 1) AS max_day,
+            n.id AS note_id,
+            c.id AS card_id,
 
-    CASE c.queue
-        WHEN 1 THEN c.due / 86400
-        ELSE (col.crt / 86400) + c.due
-    END AS card_due,
+            CASE c.queue
+                WHEN 1 THEN c.due / 86400
+                ELSE (col.crt / 86400) + c.due
+            END AS card_due,
 
-    r.day AS revlog_day,
-    r.ease AS revlog_ease,
-    r.ivl AS ivl,
-    r.type AS revlog_type,
-    r.revlog_id
-FROM notes n
-JOIN cards c ON c.nid = n.id
-JOIN target_cards tc ON tc.id = c.id
-CROSS JOIN col
-LEFT JOIN revlog_data r
-       ON  r.cid = c.id
-       AND r.rn_first = 1
-ORDER BY min(r.day) OVER (PARTITION BY n.id, c.id), note_id, card_id, revlog_day
-"""
+            r.day AS revlog_day,
+            r.ease AS revlog_ease,
+            r.ivl AS ivl,
+            r.type AS revlog_type,
+            r.revlog_id
+        FROM notes n
+        JOIN cards c ON c.nid = n.id
+        JOIN target_cards tc ON tc.id = c.id
+        CROSS JOIN col
+        LEFT JOIN revlog_data r
+            ON  r.cid = c.id
+            AND r.rn_first = 1
+        ORDER BY min(r.day) OVER (PARTITION BY n.id, c.id), note_id, card_id, revlog_day
+        """
 
-        return mw.col.db.all(query)
+        return mw.col.db.all(query, *args)  # type: ignore
 
     def onBridgeCmd(self, cmd: str) -> Any:
         if ':' in cmd:
             (cmd, args) = cmd.split(':', 1)
 
+        if cmd == 'get_init_data':
+            return self._toJson({
+                "deckName": self.deck['name']
+            })
+
         if (cmd == 'get_cards'):
-            return self._toJson(self._get_cards())
+            return self._toJson(self._get_cards(args))
 
         elif (cmd == 'open_browser'):
             aqt.dialogs.open('Browser', self.mw, search=(args,))
@@ -238,7 +276,7 @@ ORDER BY min(r.day) OVER (PARTITION BY n.id, c.id), note_id, card_id, revlog_day
 
         elif (cmd == 'card_info'):
             card_id = int(args)
-            card = mw.col.get_card(card_id)
+            card = mw.col.get_card(card_id) # type: ignore
 
             self._card_info.set_card(card)
 
@@ -255,14 +293,14 @@ ORDER BY min(r.day) OVER (PARTITION BY n.id, c.id), note_id, card_id, revlog_day
 
 
 def show_window():
-    dialog = HistoryVisualizerDialog(mw)
+    dialog = HistoryVisualizerDialog(mw) # type: ignore
     dialog.show()
 
 
 def add_menu_item():
     action = QAction('Visualize History', mw)
     action.triggered.connect(show_window)
-    mw.form.menuTools.addAction(action)
+    mw.form.menuTools.addAction(action) # type: ignore
 
 
 add_menu_item()

@@ -60,7 +60,19 @@ const panAndZoom = usePanAndZoom({
 watch([panAndZoom.visible, zoomLevel], redrawBackground, { immediate: true });
 
 function renderFrame(time: number) {
-    if (!ctx.value || !canvas.value || canvas.value.width === 0 || canvas.value.height === 0) return;
+    if (!canvas.value) return;
+
+    if (canvas.value.width !== width.value || canvas.value.height !== height.value) {
+        canvas.value.width = width.value;
+        canvas.value.height = height.value;
+    }
+    if (backgroundCanvas.width !== width.value || backgroundCanvas.height !== height.value) {
+        backgroundCanvas.width = width.value;
+        backgroundCanvas.height = height.value;
+        redrawBackground();
+    }
+
+    if (!ctx.value || canvas.value.width === 0 || canvas.value.height === 0) return;
 
     ctx.value.clearRect(0, 0, canvas.value.width, canvas.value.height);
     ctx.value.drawImage(backgroundCanvas, 0, 0);
@@ -81,16 +93,6 @@ function drawFps(time: number) {
     ctx.value.fillText(`FPS: ${Math.round(currentFps)}`, 10, 20);
     ctx.value.restore();
 }
-
-watch([width, height], () => {
-    if (canvas.value) {
-        canvas.value.width = width.value;
-        canvas.value.height = height.value;
-    }
-    backgroundCanvas.width = width.value;
-    backgroundCanvas.height = height.value;
-    redrawBackground();
-});
 
 onMounted(() => {
     if (canvas.value) {

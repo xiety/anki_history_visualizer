@@ -1,38 +1,32 @@
 <template>
     <div v-if="loading">Loading...</div>
-    <Visualizer v-else />
+    <Dashboard v-else />
 </template>
-
 <script setup lang="ts">
-import Visualizer from './Visualizer.vue';
-import { ref, onMounted, onUnmounted, provide } from 'vue';
+import { ref, onMounted, provide } from 'vue';
 import { Api } from './services/api';
+import Dashboard from './Dashboard.vue';
 
 const loading = ref(true);
 
 declare global { interface Window { pycmd: any; } }
 
-let interval: number;
+const api = new Api();
+
+provide('api', api);
+provide('isDemo', false);
 
 onMounted(() => {
-    interval = setInterval(() => {
-        if (window.pycmd !== undefined) {
+    const interval = setInterval(() => {
+        if (window.pycmd) {
             clearInterval(interval);
             loading.value = false;
         }
-    }, 100);
+    }, 50);
 });
-
-onUnmounted(() => {
-    clearInterval(interval);
-});
-
-provide('api', new Api());
-
-provide('isDemo', false);
 </script>
+
 <style>
-/* style of the body from Anki */
 .isWin {
     margin: 0px;
     overflow-y: scroll;
