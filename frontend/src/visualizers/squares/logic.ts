@@ -51,7 +51,7 @@ function calculate(squares: Square[], info: VisualizerInfo, controls: Readonly<C
     }
 }
 
-function drawShapes(ctx: CanvasRenderingContext2D, squares: readonly Square[], selectedSquare: Square | null, viewport: Viewport): void {
+function drawShapes(ctx: CanvasRenderingContext2D, squares: readonly Square[], info: VisualizerInfo, selectedSquare: Square | null, viewport: Viewport): void {
     drawRects(ctx, viewport, squares, false);
     if (selectedSquare) {
         drawRects(ctx, viewport, [selectedSquare], true);

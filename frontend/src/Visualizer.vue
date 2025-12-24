@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, inject } from 'vue';
+import { ref, computed, inject, watch } from 'vue';
 import { useMasterLoop } from '@/composables/useMasterLoop';
 import { calculateInfo } from '@/services/stateCalculator';
-import { addDays } from '@/utils';
+import { addDays, daysBetween } from '@/utils';
 import type { ApiInterface, Card } from '@/services/api';
 import type { VisualizerInfo } from './types/visualizers';
 
@@ -17,8 +17,8 @@ import Parameter from '@/parameters/Parameter.vue';
 
 const props = defineProps<{
     cards: Card[];
-    minDate: Date;
-    frameCount: number;
+    minDate: Date | null;
+    maxDate: Date;
     selectedCardId: number | null;
 }>();
 
@@ -45,19 +45,21 @@ const speed = ref(30);
 const currentFrame = ref(0);
 const visualizerRef = ref<{ renderFrame: (time: number) => void; } | null>(null);
 
+const maxValue = computed(() => props.minDate ? daysBetween(props.minDate, props.maxDate) : 0);
+
 useMasterLoop({
     isPlaying,
     speed,
     currentFrame,
-    frameCount: computed(() => props.frameCount)
+    maxValue,
 }, (time) => visualizerRef.value?.renderFrame(time));
 
 const info = computed<VisualizerInfo | null>(() => calculateInfo(props.cards, currentFrame.value));
 
-const currentDate = computed(() => addDays(props.minDate, currentFrame.value));
-const currentDateText = computed(() => currentDate.value.toLocaleDateString());
+const currentDate = computed(() => props.minDate ? addDays(props.minDate, currentFrame.value) : null);
+const currentDateText = computed(() => currentDate.value ? currentDate.value.toLocaleDateString() : '');
 const paddedFrame = computed(() => {
-    const digits = String(props.frameCount).length;
+    const digits = String(maxValue.value).length;
     return String(currentFrame.value).padStart(digits || 1, '0');
 });
 
@@ -67,6 +69,25 @@ function openBrowser() {
 function openInfo() {
     if (props.selectedCardId) api.open_card_info();
 }
+
+watch(
+    () => props.minDate,
+    (newMin, oldMin) => {
+        if (oldMin && newMin) {
+            const viewDate = addDays(oldMin, currentFrame.value);
+            const newIndex = daysBetween(newMin, viewDate);
+            if (newIndex < 0) {
+                currentFrame.value = 0;
+            } else if (newIndex > maxValue.value) {
+                currentFrame.value = maxValue.value;
+            } else {
+                currentFrame.value = newIndex;
+            }
+        } else {
+            currentFrame.value = 0;
+        }
+    }
+);
 </script>
 
 <template>
@@ -88,12 +109,13 @@ function openInfo() {
 
         <div class="canvas-wrapper">
             <component :is="activeComponent" ref="visualizerRef" :info="info" :selectedCardId="selectedCardId"
-                @clicked="id => emit('clicked', id)" />
+                :cards="cards" @clicked="id => emit('clicked', id)" />
         </div>
 
         <div class="timeline-area">
-            <input type="range" class="scrubber" v-model.number="currentFrame" :min="0"
-                :max="frameCount > 0 ? frameCount - 1 : 0" />
+            <!-- Model binding doesn't work here -->
+            <input type="range" class="scrubber" :min="0" :max="maxValue" :value="currentFrame"
+                @input="currentFrame = Number(($event.target as HTMLInputElement).value)" />
             <div class="toolbar">
                 <div class="date_info">
                     <span>{{ currentDateText }}</span>
@@ -177,5 +199,4 @@ function openInfo() {
 .frame_counter {
     font-size: 0.8em;
 }
-
 </style>

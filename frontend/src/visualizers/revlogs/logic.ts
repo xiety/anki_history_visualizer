@@ -124,13 +124,24 @@ function calculate(rows: Row[], info: VisualizerInfo, controls: Readonly<Control
     }
 }
 
-function drawShapes(ctx: CanvasRenderingContext2D, rows: readonly Row[], selectedRow: Row | null, viewport: Viewport): void {
+function drawShapes(ctx: CanvasRenderingContext2D, rows: readonly Row[], info: VisualizerInfo, selectedRow: Row | null, viewport: Viewport): void {
     const allRects = rows.flatMap(r => r.steps);
 
     drawRects(ctx, viewport, allRects, false);
     if (selectedRow) {
         drawRects(ctx, viewport, selectedRow.steps, true);
     }
+
+    const x = info.day * (BOX_SIZE + BOX_SPACING);
+    const height = rows.length * (BOX_SIZE + BOX_SPACING);
+
+    ctx.strokeStyle = 'white';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+    ctx.restore();
 }
 
 function hitTest(x: number, y: number, rows: readonly Row[]): Row | null {

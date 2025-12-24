@@ -1,6 +1,7 @@
 import { shallowRef, watch, computed, onActivated, type Ref } from 'vue';
 import type { CanvasSize, IVisualizer, Shape, Viewport, VisualizerInfo } from '@/types/visualizers';
 import type InteractiveCanvas from '@/components/InteractiveCanvas.vue';
+import type { Card } from '@/services/api';
 import { animateShapes, jumpShapesToTarget } from '@/services/animation';
 
 export interface IAnimationControls {
@@ -9,7 +10,11 @@ export interface IAnimationControls {
 
 export function useVisualizer<TControls extends object, TShape extends Shape>(
     logic: IVisualizer<TControls, TShape>,
-    props: { info: VisualizerInfo | null, selectedCardId: number | null; },
+    props: {
+        info: VisualizerInfo | null;
+        selectedCardId: number | null;
+        cards: Card[];
+    },
     controls: TControls & IAnimationControls,
     canvasRef: Ref<InstanceType<typeof InteractiveCanvas> | null>,
     emit: (e: 'clicked', payload: number | null) => void
@@ -24,8 +29,9 @@ export function useVisualizer<TControls extends object, TShape extends Shape>(
     );
 
     function foregroundTick(ctx: CanvasRenderingContext2D, viewport: Viewport) {
+        if (!props.info) return;
         animateShapes(shapes.value, logic.isAnimated, controls.animationSpeed ?? 30);
-        logic.drawShapes(ctx, shapes.value, selectedShape.value, viewport);
+        logic.drawShapes(ctx, shapes.value, props.info, selectedShape.value, viewport);
     }
 
     function drawBackground(ctx: CanvasRenderingContext2D, canvasSize: CanvasSize, zoomLevel: number, viewport: Viewport) {
@@ -39,7 +45,7 @@ export function useVisualizer<TControls extends object, TShape extends Shape>(
         emit('clicked', hit?.id ?? null);
     }
 
-    let initialized = false;
+    let lastProcessedCards: Card[] | undefined;
 
     function calculate() {
         if (!props.info) return;
@@ -47,9 +53,13 @@ export function useVisualizer<TControls extends object, TShape extends Shape>(
     }
 
     function refreshForeground(animate: boolean) {
-        if (!canvasSize.value.width || !canvasSize.value.height || !props.info) return;
+        if (!props.info || !canvasSize.value.width) return;
 
-        if (!initialized) {
+        const isNewData = props.cards !== lastProcessedCards;
+
+        if (isNewData) {
+            lastProcessedCards = props.cards;
+
             if (logic.pannable) {
                 [virtualSize.value, shapes.value] = logic.initialize(props.info);
             } else {
@@ -58,7 +68,6 @@ export function useVisualizer<TControls extends object, TShape extends Shape>(
 
             calculate();
             jumpShapesToTarget(shapes.value, true);
-            initialized = true;
         }
         else {
             calculate();
@@ -75,9 +84,21 @@ export function useVisualizer<TControls extends object, TShape extends Shape>(
         canvasRef.value?.redrawBackground();
     }
 
-    watch(() => props.info, () => refreshForeground(true));
-    watch([controls, canvasSize], () => { refreshForeground(true); refreshBackground(); });
-    onActivated(() => { refreshForeground(false), refreshBackground(); });
+    watch(
+        [() => props.cards, () => props.info],
+        () => refreshForeground(true),
+        { immediate: true }
+    );
+
+    watch([controls, canvasSize], () => {
+        refreshForeground(true);
+        refreshBackground();
+    });
+
+    onActivated(() => {
+        refreshForeground(false);
+        refreshBackground();
+    });
 
     return { renderFrame, foregroundTick, drawBackground, onCanvasClick, virtualSize };
 }

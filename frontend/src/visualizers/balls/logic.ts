@@ -61,7 +61,7 @@ function calculate(balls: Ball[], info: VisualizerInfo, controls: Readonly<Contr
     }
 }
 
-function drawShapes(ctx: CanvasRenderingContext2D, balls: readonly Ball[], selectedShape: Ball | null, viewport: Viewport): void {
+function drawShapes(ctx: CanvasRenderingContext2D, balls: readonly Ball[], info: VisualizerInfo, selectedShape: Ball | null, viewport: Viewport): void {
     draw_circles(ctx, viewport, balls, selectedShape);
 }
 

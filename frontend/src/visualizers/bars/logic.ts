@@ -60,7 +60,7 @@ function isLineVisible(x: number, y1: number, y2: number, view: DOMRectReadOnly)
     return maxY >= view.top - bleed && minY <= view.bottom + bleed;
 }
 
-function drawShapes(ctx: CanvasRenderingContext2D, bars: readonly Bar[], selectedBar: Bar | null, viewport: Viewport): void {
+function drawShapes(ctx: CanvasRenderingContext2D, bars: readonly Bar[], info: VisualizerInfo, selectedBar: Bar | null, viewport: Viewport): void {
     const grouped = Map.groupBy(bars, s => s.color);
     ctx.lineWidth = 1;
 

@@ -2,42 +2,44 @@
 import { ref, onMounted, inject, shallowRef, watch, nextTick } from 'vue';
 import Split from 'split.js';
 import type { ApiInterface, Card } from '@/services/api';
-import { dayToDate, daysBetween } from '@/utils';
+import { dayToDate } from '@/utils';
 import Visualizer from '@/Visualizer.vue';
 
 const api = inject<ApiInterface>('api')!;
 
 const filterString = ref("");
 const isLoadingData = ref(false);
-const visualizerKey = ref(0);
 
 const cards = shallowRef<Card[]>([]);
-const minDate = shallowRef<Date>(new Date());
-const frameCount = ref(0);
+const minDate = shallowRef<Date | null>(null);
+const maxDate = shallowRef<Date>(new Date());
 
 const selectedCardId = ref<number | null>(null);
 const previewQuestion = ref("");
 const previewAnswer = ref("");
 
 async function loadData() {
-    if (isLoadingData.value) return;
     isLoadingData.value = true;
-
-    await nextTick();
 
     try {
         const response = await api.get_cards(filterString.value);
 
-        const min = dayToDate(response.min_day);
-        const count = daysBetween(min, new Date()) + 1;
+        if (response.cards.length > 0) {
+            const min = dayToDate(response.min_day);
+            minDate.value = min;
+        } else {
+            minDate.value = null;
+        }
 
-        minDate.value = min;
-        frameCount.value = count;
+        if (selectedCardId.value !== null) {
+            const exists = response.cards.some(c => c.card_id === selectedCardId.value);
+
+            if (!exists) {
+                selectedCardId.value = null;
+            }
+        }
+
         cards.value = response.cards;
-
-        selectedCardId.value = null;
-
-        visualizerKey.value++;
     } catch (e) {
         console.error(e);
     } finally {
@@ -72,6 +74,10 @@ onMounted(async () => {
         });
     });
 });
+
+function handleCardClick(id: number | null) {
+    selectedCardId.value = id;
+}
 </script>
 
 <template>
@@ -88,9 +94,8 @@ onMounted(async () => {
             </div>
 
             <div class="visualizer-area">
-                <Visualizer v-if="cards.length > 0" :key="visualizerKey" :cards="cards" :min-date="minDate"
-                    :frame-count="frameCount" :selected-card-id="selectedCardId" @clicked="id => selectedCardId = id" />
-                <div v-else class="empty-state">No cards found.</div>
+                <Visualizer :cards="cards" :min-date="minDate" :max-date="maxDate" :selected-card-id="selectedCardId"
+                    @clicked="handleCardClick" />
             </div>
         </div>
 

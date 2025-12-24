@@ -78,7 +78,7 @@ export interface Shape {
 export interface IVisualizerBase<TControls, TShape> {
     readonly isAnimated: boolean;
     calculate(shapes: TShape[], info: VisualizerInfo, controls: Readonly<TControls>, canvasSize: CanvasSize): void;
-    drawShapes(ctx: CanvasRenderingContext2D, shapes: readonly TShape[], selectedShape: TShape | null, viewport: Viewport,): void;
+    drawShapes(ctx: CanvasRenderingContext2D, shapes: readonly TShape[], info: VisualizerInfo, selectedShape: TShape | null, viewport: Viewport,): void;
     drawBackground?(ctx: CanvasRenderingContext2D, controls: Readonly<TControls>, canvasSize: CanvasSize, zoomLevel: number, viewport: Viewport): void;
     hitTest(x: number, y: number, shapes: readonly TShape[]): TShape | null;
 }

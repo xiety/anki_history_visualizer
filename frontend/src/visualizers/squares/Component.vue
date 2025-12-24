@@ -6,10 +6,12 @@ import InteractiveCanvas from '@/components/InteractiveCanvas.vue';
 import VisualizerLayout from '@/components/VisualizerLayout.vue';
 import Parameter from '@/parameters/Parameter.vue';
 import type { VisualizerInfo } from '@/types/visualizers';
+import type { Card } from '@/services/api';
 
 const props = defineProps<{
     info: VisualizerInfo | null;
     selectedCardId: number | null;
+    cards: Card[];
 }>();
 
 const emit = defineEmits<{ (e: 'clicked', payload: number | null): void; }>();

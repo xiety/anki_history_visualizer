@@ -7,10 +7,12 @@ import VisualizerBars from '@/visualizers/bars/Component.vue';
 import VisualizerFutures from '@/visualizers/futures/Component.vue';
 import VisualizerRevlogs from '@/visualizers/revlogs/Component.vue';
 import type { VisualizerInfo } from '@/types/visualizers';
+import type { Card } from '@/services/api';
 
-defineProps<{
+const props = defineProps<{
     info: VisualizerInfo | null,
     selectedCardId: number | null,
+    cards: Card[];
 }>();
 
 const emit = defineEmits<{
@@ -50,8 +52,8 @@ defineExpose({ renderFrame });
 <template>
     <div class="grid-container">
         <div v-for="(visualizerComponent, index) in allVisualizers" :key="index" class="grid-item">
-            <component :is="visualizerComponent" :ref="el => { if (el) visualizerRefs[index] = el; }" :info="info"
-                :selectedCardId="selectedCardId" @clicked="handle_clicked" />
+            <component :is="visualizerComponent" :ref="el => { if (el) visualizerRefs[index] = el; }" v-bind="props"
+                @clicked="handle_clicked" />
         </div>
     </div>
 </template>
